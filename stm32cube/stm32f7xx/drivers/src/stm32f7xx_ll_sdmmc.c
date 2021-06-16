@@ -1002,12 +1002,37 @@ uint32_t SDMMC_CmdSendCSD(SDMMC_TypeDef *SDMMCx, uint32_t Argument)
 }
 
 /**
+  * @brief  Send the Set CSD command and check the response.
+  * @param  SDMMCx: Pointer to SDMMC register base
+  * @param  RCA: Card RCA
+  * @retval HAL status
+  */
+uint32_t SDMMC_CmdSetRelAdd(SDMMC_TypeDef *SDMMCx, uint16_t RCA)
+{
+  SDMMC_CmdInitTypeDef  sdmmc_cmdinit;
+  uint32_t errorstate;
+
+  /* Send CMD3 SD_CMD_SET_REL_ADDR */
+  sdmmc_cmdinit.Argument         = RCA << 16;
+  sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_SET_REL_ADDR;
+  sdmmc_cmdinit.Response         = SDMMC_RESPONSE_SHORT;
+  sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
+  sdmmc_cmdinit.CPSM             = SDMMC_CPSM_ENABLE;
+  (void)SDMMC_SendCommand(SDMMCx, &sdmmc_cmdinit);
+
+  /* Check for error conditions */
+  errorstate = SDMMC_GetCmdResp1(SDMMCx, SDMMC_CMD_SET_REL_ADDR, SDMMC_CMDTIMEOUT);
+
+  return errorstate;
+}
+
+/**
   * @brief  Send the Send CSD command and check the response.
   * @param  SDMMCx: Pointer to SDMMC register base
   * @param  pRCA: Card RCA
   * @retval HAL status
   */
-uint32_t SDMMC_CmdSetRelAdd(SDMMC_TypeDef *SDMMCx, uint16_t *pRCA)
+uint32_t SDMMC_CmdSendRelAdd(SDMMC_TypeDef *SDMMCx, uint16_t *pRCA)
 {
   SDMMC_CmdInitTypeDef  sdmmc_cmdinit;
   uint32_t errorstate;
