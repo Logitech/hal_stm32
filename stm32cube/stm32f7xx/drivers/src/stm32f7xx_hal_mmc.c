@@ -2600,7 +2600,7 @@ static uint32_t MMC_InitCard(MMC_HandleTypeDef *hmmc)
 
   /* Send CMD3 SET_REL_ADDR with argument 0 */
   /* MMC Card publishes its RCA. */
-  errorstate = SDMMC_CmdSetRelAdd(hmmc->Instance, &mmc_rca);
+  errorstate = SDMMC_CmdSetRelAdd(hmmc->Instance, mmc_rca);
   if(errorstate != HAL_MMC_ERROR_NONE)
   {
     return errorstate;
@@ -2627,17 +2627,17 @@ static uint32_t MMC_InitCard(MMC_HandleTypeDef *hmmc)
   /* Get the Card Class */
   hmmc->MmcCard.Class = (SDMMC_GetResponse(hmmc->Instance, SDMMC_RESP2) >> 20U);
 
-  /* Get CSD parameters */
-  if (HAL_MMC_GetCardCSD(hmmc, &CSD) != HAL_OK)
-  {
-    return hmmc->ErrorCode;
-  }
-
   /* Select the Card */
   errorstate = SDMMC_CmdSelDesel(hmmc->Instance, (uint32_t)(((uint32_t)hmmc->MmcCard.RelCardAdd) << 16U));
   if(errorstate != HAL_MMC_ERROR_NONE)
   {
     return errorstate;
+  }
+
+  /* Get CSD parameters */
+  if (HAL_MMC_GetCardCSD(hmmc, &CSD) != HAL_OK)
+  {
+    return hmmc->ErrorCode;
   }
 
   /* Configure SDMMC peripheral interface */

@@ -2646,7 +2646,7 @@ static uint32_t SD_InitCard(SD_HandleTypeDef *hsd)
   {
     /* Send CMD3 SET_REL_ADDR with argument 0 */
     /* SD Card publishes its RCA. */
-    errorstate = SDMMC_CmdSetRelAdd(hsd->Instance, &sd_rca);
+    errorstate = SDMMC_CmdSendRelAdd(hsd->Instance, &sd_rca);
     if(errorstate != HAL_SD_ERROR_NONE)
     {
       return errorstate;
