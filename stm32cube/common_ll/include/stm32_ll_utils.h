@@ -20,8 +20,6 @@
 #include <stm32f7xx_ll_utils.h>
 #elif defined(CONFIG_SOC_SERIES_STM32G0X)
 #include <stm32g0xx_ll_utils.h>
-#elif defined(CONFIG_SOC_SERIES_STM32G0X)
-#include <stm32g0xx_ll_utils.h>
 #elif defined(CONFIG_SOC_SERIES_STM32G4X)
 #include <stm32g4xx_ll_utils.h>
 #elif defined(CONFIG_SOC_SERIES_STM32H7X)
@@ -36,6 +34,8 @@
 #include <stm32l5xx_ll_utils.h>
 #elif defined(CONFIG_SOC_SERIES_STM32MP1X)
 #include <stm32mp1xx_ll_utils.h>
+#elif defined(CONFIG_SOC_SERIES_STM32U5X)
+#include <stm32u5xx_ll_utils.h>
 #elif defined(CONFIG_SOC_SERIES_STM32WBX)
 #include <stm32wbxx_ll_utils.h>
 #elif defined(CONFIG_SOC_SERIES_STM32WLX)

@@ -23,7 +23,7 @@
 #define __APP_CONFIG_H
 
 #include "hw.h"
-/* hw_conf.h file is not used, remove the dependency */
+/* Z-WB-1: hw_conf.h file is not used, remove the dependency */
 /* #include "hw_conf.h" */
 #include "hw_if.h"
 #include "ble_bufsize.h"
@@ -77,6 +77,29 @@
 #define CFG_MITM_PROTECTION                   CFG_MITM_PROTECTION_REQUIRED
 
 /**
+ * Define Secure Connections Support
+ */
+#define CFG_SECURE_NOT_SUPPORTED       (0x00)
+#define CFG_SECURE_OPTIONAL            (0x01)
+#define CFG_SECURE_MANDATORY           (0x02)
+
+#define CFG_SC_SUPPORT                 CFG_SECURE_NOT_SUPPORTED
+
+/**
+ * Define Keypress Notification Support
+ */
+#define CFG_KEYPRESS_NOT_SUPPORTED      (0x00)
+#define CFG_KEYPRESS_SUPPORTED          (0x01)
+
+#define CFG_KEYPRESS_NOTIFICATION_SUPPORT             CFG_KEYPRESS_NOT_SUPPORTED
+
+/**
+ * Numeric Comparison Answers
+ */
+#define YES (0x01)
+#define NO  (0x00)
+
+/**
  * Define PHY
  */
 #define ALL_PHYS_PREFERENCE                             0x00
@@ -92,6 +115,7 @@
  */
 #define CFG_UNKNOWN_APPEARANCE                  (0)
 #define CFG_GAP_APPEARANCE                      (832)
+#define BLE_APPEARANCE_HID_MOUSE                (962)
 
 /**
 *   Identity root key used to derive LTK and CSRK
@@ -109,7 +133,7 @@
  * SMPS not used when Set to 0
  * SMPS used when Set to 1
  */
-#define CFG_USE_SMPS    1
+#define CFG_USE_SMPS    0
 /* USER CODE END Generic_Parameters */
 
 /**< specific parameters ********************************************************/
@@ -127,7 +151,7 @@
  * Maximum number of simultaneous connections that the device will support.
  * Valid values are from 1 to 8
  */
-#define CFG_BLE_NUM_LINK            8
+#define CFG_BLE_NUM_LINK            2
 
 /**
  * Maximum number of Services that can be stored in the GATT database.
@@ -146,6 +170,7 @@
 
 /**
  * Maximum supported ATT_MTU size
+ * This parameter is ignored by the CPU2 when CFG_BLE_OPTIONS is set to 1"
  */
 #define CFG_BLE_MAX_ATT_MTU             (156)
 
@@ -158,6 +183,7 @@
  *  - 2*DTM_NUM_LINK, if client configuration descriptor is used
  *  - 2, if extended properties is used
  *  The total amount of memory needed is the sum of the above quantities for each attribute.
+ * This parameter is ignored by the CPU2 when CFG_BLE_OPTIONS is set to 1"
  */
 #define CFG_BLE_ATT_VALUE_ARRAY_SIZE    (1344)
 
@@ -168,6 +194,7 @@
 
 /**
  * Number of allocated memory blocks
+ * This parameter is overwritten by the CPU2 with an hardcoded optimal value when the parameter when CFG_BLE_OPTIONS is set to 1
  */
 #define CFG_BLE_MBLOCK_COUNT            (BLE_MBLOCKS_CALC(CFG_BLE_PREPARE_WRITE_LIST_SIZE, CFG_BLE_MAX_ATT_MTU, CFG_BLE_NUM_LINK))
 
@@ -195,9 +222,9 @@
 #define CFG_BLE_MASTER_SCA   0
 
 /**
- *  Source for the 32 kHz slow speed clock
- *  1 : internal RO
- *  0 : external crystal ( no calibration )
+ *  Source for the low speed clock for RF wake-up
+ *  1 : external high speed crystal HSE/32/32
+ *  0 : external low speed crystal ( no calibration )
  */
 #define CFG_BLE_LSE_SOURCE  0
 
@@ -209,7 +236,7 @@
 /**
  * Maximum duration of the connection event when the device is in Slave mode in units of 625/256 us (~2.44 us)
  */
-#define CFG_BLE_MAX_CONN_EVENT_LENGTH  ( 0xFFFFFFFF )
+#define CFG_BLE_MAX_CONN_EVENT_LENGTH  (0xFFFFFFFF)
 
 /**
  * Viterbi Mode
@@ -219,11 +246,34 @@
 #define CFG_BLE_VITERBI_MODE  1
 
 /**
- *  LL Only Mode
- *  1 : LL Only
- *  0 : LL + Host
+ * BLE stack Options flags to be configured with:
+ * - SHCI_C2_BLE_INIT_OPTIONS_LL_ONLY
+ * - SHCI_C2_BLE_INIT_OPTIONS_LL_HOST
+ * - SHCI_C2_BLE_INIT_OPTIONS_NO_SVC_CHANGE_DESC
+ * - SHCI_C2_BLE_INIT_OPTIONS_WITH_SVC_CHANGE_DESC
+ * - SHCI_C2_BLE_INIT_OPTIONS_DEVICE_NAME_RO
+ * - SHCI_C2_BLE_INIT_OPTIONS_DEVICE_NAME_RW
+ * - SHCI_C2_BLE_INIT_OPTIONS_POWER_CLASS_1
+ * - SHCI_C2_BLE_INIT_OPTIONS_POWER_CLASS_2_3
+ * which are used to set following configuration bits:
+ * (bit 0): 1: LL only
+ *          0: LL + host
+ * (bit 1): 1: no service change desc.
+ *          0: with service change desc.
+ * (bit 2): 1: device name Read-Only
+ *          0: device name R/W
+ * (bit 7): 1: LE Power Class 1
+ *          0: LE Power Classe 2-3
+ * other bits: reserved (shall be set to 0)
  */
-#define CFG_BLE_LL_ONLY  1
+#define CFG_BLE_OPTIONS  SHCI_C2_BLE_INIT_OPTIONS_LL_ONLY /* Z-WB-3 */
+
+#define CFG_BLE_MAX_COC_INITIATOR_NBR   (32)
+
+#define CFG_BLE_MIN_TX_POWER            (0)
+
+#define CFG_BLE_MAX_TX_POWER            (0)
+
 
 /******************************************************************************
  * Transport Layer
@@ -291,10 +341,10 @@
  ******************************************************************************/
 /**
  *  CFG_RTC_WUCKSEL_DIVIDER:  This sets the RTCCLK divider to the wakeup timer.
- *  The higher is the value, the better is the power consumption and the accuracy of the timerserver
- *  The lower is the value, the finest is the granularity
+ *  The lower is the value, the better is the power consumption and the accuracy of the timerserver
+ *  The higher is the value, the finest is the granularity
  *
- *  CFG_RTC_ASYNCH_PRESCALER: This sets the asynchronous prescaler of the RTC. It should as high as possible ( to ouput
+ *  CFG_RTC_ASYNCH_PRESCALER: This sets the asynchronous prescaler of the RTC. It should as high as possible ( to output
  *  clock as low as possible) but the output clock should be equal or higher frequency compare to the clock feeding
  *  the wakeup timer. A lower clock speed would impact the accuracy of the timer server.
  *
@@ -467,6 +517,7 @@ typedef enum
   CFG_TASK_CONN_MGR_ID,
   CFG_TASK_HID_UPDATE_REQ_ID,
   CFG_TASK_HID_DISC_REQ_ID,
+  CFG_TASK_BAS_LEVEL_REQ_ID,
   CFG_TASK_HCI_ASYNCH_EVT_ID,
 
   CFG_LAST_TASK_ID_WITH_HCICMD,                                               /**< Shall be LAST in the list */

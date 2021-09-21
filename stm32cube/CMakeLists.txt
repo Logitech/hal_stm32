@@ -36,6 +36,7 @@ set(stm_socs
   stm32l4x
   stm32l5x
   stm32mp1x
+  stm32u5x
   stm32wbx
   stm32wlx
   )
@@ -62,5 +63,9 @@ foreach(stm_soc ${stm_socs})
     add_subdirectory(${stm_soc}x)
   endif()
 endforeach()
+
+if(CONFIG_USE_STM32_ASSERT)
+	zephyr_compile_definitions( -DUSE_FULL_ASSERT )
+endif()
 
 zephyr_include_directories(common_ll/include)

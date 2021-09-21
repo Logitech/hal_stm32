@@ -13,6 +13,7 @@ import subprocess
 import re
 from pathlib import Path
 import logging
+from jinja2 import Environment, FileSystemLoader
 
 STM32_CUBE_REPO_BASE = "https://github.com/STMicroelectronics/STM32Cube"
 
@@ -30,6 +31,7 @@ def os_cmd(cmd, cwd=None, shell=False):
     Args:
         cmd: string command to execute.
         cwd: directory where to run command
+        shell: boolean to enable command interpretation by the shell
 
     Returns:
         return the returncode of the command after execution.
@@ -116,6 +118,17 @@ class Stm32SerieUpdate:
         self.latest_version = ""
         self.latest_commit = ""
 
+    def major_branch(self):
+        # check whether master branch exist, otherwise use main branch
+        master_branch_exist = subprocess.check_output(
+            ("git", "ls-remote", "--heads", "origin", "master"),
+            cwd=self.stm32cube_serie_path,
+        ).decode("utf-8")
+        if master_branch_exist:
+            return "master"
+        else:
+            return "main"
+
     def clone_cube_repo(self):
         """Clone or fetch a stm32 serie repo"""
         if self.stm32cube_serie_path.exists():
@@ -123,8 +136,9 @@ class Stm32SerieUpdate:
             # if already exists, then just clean and fetch
             os_cmd(("git", "clean", "-fdx"), cwd=self.stm32cube_serie_path)
             os_cmd(("git", "fetch"), cwd=self.stm32cube_serie_path)
+            branch = self.major_branch()
             os_cmd(
-                ("git", "reset", "--hard", "master"),
+                ("git", "reset", "--hard", branch),
                 cwd=self.stm32cube_serie_path,
             )
         else:
@@ -132,12 +146,16 @@ class Stm32SerieUpdate:
                 ("git", "clone", STM32_CUBE_REPO_BASE + self.serie + ".git"),
                 cwd=self.stm32cube_repo_path,
             )
+            branch = self.major_branch()
+
+        logging.info("Branch used: %s", branch)
 
         # get the latest version of cube,
         # with the most recent one created being the last entry.
-        os_cmd(("git", "checkout", "master"), cwd=self.stm32cube_serie_path)
+        os_cmd(("git", "checkout", branch), cwd=self.stm32cube_serie_path)
         self.version_tag = subprocess.check_output(
-            "git tag -l", cwd=self.stm32cube_serie_path
+            ("git", "tag", "-l"),
+            cwd=self.stm32cube_serie_path
         ).splitlines()
         self.version_tag = [x.decode("utf-8") for x in self.version_tag]
         # Set latest version
@@ -265,11 +283,12 @@ class Stm32SerieUpdate:
         )
         os_cmd(
             (
-                "cp",
-                "-r",
-                str(stm32cube_drivers_src_path) + "/*.*",
-                str(temp_drivers_src_path),
-            )
+                "cp " +
+                "-r " +
+                str(stm32cube_drivers_src_path) + "/*.* " +
+                str(temp_drivers_src_path)
+            ),
+            shell=True,
         )
 
     def build_from_current_cube_version(self):
@@ -332,18 +351,10 @@ class Stm32SerieUpdate:
             "Building patch from " + self.current_version + " to current module"
         )
         os_cmd(
-            (
-                "git",
-                "diff",
-                "--ignore-space-at-eol",
-                "HEAD~1",
-                ">>",
-                "module.patch",
-            ),
+            "git diff --ignore-space-at-eol HEAD~1 >> module.patch",
             shell=True,
             cwd=self.stm32cube_temp,
         )
-
         os_cmd(("dos2unix", "module.patch"), cwd=self.stm32cube_temp)
 
         hal_conf = (
@@ -356,13 +367,13 @@ class Stm32SerieUpdate:
         if hal_conf.exists():
             os_cmd(
                 (
-                    "git",
-                    "diff",
-                    "HEAD@{1}",
-                    "--",
-                    str(hal_conf),
-                    ">>",
-                    str(hal_conf_patch),
+                    "git " +
+                    "diff " +
+                    "HEAD@{1} " +
+                    "-- " +
+                    str(hal_conf) +
+                    " >> " +
+                    str(hal_conf_patch)
                 ),
                 shell=True,
                 cwd=self.stm32cube_temp,
@@ -520,6 +531,38 @@ class Stm32SerieUpdate:
                     )
         os_cmd(("dos2unix", str(cmakelists_path)))
 
+    def generate_assert_file(self):
+        """Remove stm32_assert_template.h file and create stm32_assert.h file"""
+        # remove stm32_assert_template.h
+        stm32_assert_template = (
+            self.stm32cube_temp_serie
+            / "drivers"
+            / "include"
+            / "stm32_assert_template.h"
+        )
+        if stm32_assert_template.exists():
+            stm32_assert_template.unlink()
+
+        # create stm32_assert.h from Jinja2 template
+        # Create the jinja2 environment.
+        templates_dir = self.zephyr_hal_stm32_path / "scripts"
+        j2_env = Environment(
+            loader=FileSystemLoader(str(templates_dir)),
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+        stm32_assert_j2_template = j2_env.get_template(
+            "stm32_assert_template.txt"
+        )
+        stm32_assert_h = (
+            self.stm32cube_temp_serie / "drivers" / "include" / "stm32_assert.h"
+        )
+
+        with open(stm32_assert_h, "w") as stm32_assert_file:
+            stm32_assert_file.write(
+                stm32_assert_j2_template.render(stm32serie=self.stm32_serie)
+            )
+
     def build_from_latest_version(self):
         """Build a commit in temporary dir with STM32Cube version
         corresponding to zephyr latest hal version
@@ -532,7 +575,8 @@ class Stm32SerieUpdate:
 
         # Get the commit id of this latest version
         self.latest_commit = subprocess.check_output(
-            "git rev-parse HEAD", cwd=self.stm32cube_serie_path
+            ("git", "rev-parse", "HEAD"),
+            cwd=self.stm32cube_serie_path
         ).decode("utf-8")
 
         # clear previous version content before populating with latest version
@@ -577,6 +621,9 @@ class Stm32SerieUpdate:
             )
             os.remove("hal_conf.patch")
 
+        # remove stm32_assert_template.h and create stm32_assert.h
+        self.generate_assert_file()
+
         # Commit files except log or patch files
         os_cmd(("git", "add", "*"), cwd=self.stm32cube_temp)
         os_cmd(("git", "reset", "--", "*.patch"), cwd=self.stm32cube_temp)
@@ -595,7 +642,7 @@ class Stm32SerieUpdate:
         # Generate a patch for each file in the module
 
         os_cmd(
-            ("git", "diff", "HEAD~1", ">>", "new_version.patch"),
+            "git diff HEAD~1 >> new_version.patch",
             shell=True,
             cwd=self.stm32cube_temp,
         )

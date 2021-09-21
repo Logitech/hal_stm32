@@ -87,6 +87,18 @@ if args.repo:
 else:
     repo_path = Path(os.getenv("HOME")) / "STM32Cube_repo"
 
+if not os.getenv("ZEPHYR_BASE"):
+    raise Exception("ZEPHYR_BASE Not defined")
+
+if not args.noclean:
+    print("Do you want to clean downloaded repo (" + str(repo_path) + ") at the end of updates?")
+    res = input("(Enter y/n) ").lower()
+    while res not in ("y", "n"):
+        res = input("(Enter y/n) ").lower()
+    if res == "n":
+        logging.info("Add option --noclean")
+        args.noclean = True
+
 if args.stm32_serie:
     update = serie_update.Stm32SerieUpdate(
         args.stm32_serie, repo_path, args.force, args.noclean
