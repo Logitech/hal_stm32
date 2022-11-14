@@ -2259,6 +2259,42 @@ HAL_StatusTypeDef HAL_MMC_Cache(MMC_HandleTypeDef *hmmc, uint32_t enable)
 }
 
 /**
+ * @brief Flush the cache
+ *
+ * @param  hmmc: Pointer to MMC handle
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_MMC_FlushCache(MMC_HandleTypeDef *hmmc)
+{
+  uint32_t errorstate = HAL_MMC_ERROR_NONE;
+  uint32_t cardStatus = 0;
+  uint32_t retry = SDMMC_MAX_TRIAL;
+
+  if(hmmc->State == HAL_MMC_STATE_READY)
+  {
+    hmmc->State = HAL_MMC_STATE_BUSY;
+    errorstate = SDMMC_CmdSwitch(hmmc->Instance, 0x03200100U);
+    if (errorstate != HAL_MMC_ERROR_NONE)
+    {
+      hmmc->ErrorCode |= errorstate;
+      hmmc->State = HAL_MMC_STATE_READY;
+      return HAL_ERROR;
+    }
+    do
+    {
+      /* While card is not ready for data and trial number for sending CMD13 is not exceeded */
+      errorstate = MMC_SendStatus(hmmc, &cardStatus);
+    } while (retry--  && (errorstate == HAL_MMC_ERROR_NONE) && ((cardStatus >> 9) & 0xf) > 1);
+    if(errorstate != HAL_MMC_ERROR_NONE)
+    {
+      hmmc->ErrorCode |= errorstate;
+    }
+    hmmc->State = HAL_MMC_STATE_READY;
+  }
+  return errorstate == HAL_MMC_ERROR_NONE ? HAL_OK : HAL_ERROR;
+}
+
+/**
   * @brief  Enables wide bus operation for the requested card if supported by
   *         card.
   * @param  hmmc: Pointer to MMC handle
