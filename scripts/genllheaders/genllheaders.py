@@ -34,9 +34,7 @@ HEADER_TEMPLATE_FILE = "header-template.j2"
 REPO_ROOT = SCRIPT_DIR / ".." / ".."
 """Repository root (used for input/output default folders)."""
 
-LL_API_IGNORE = [
-    "usb"
-]
+LL_API_IGNORE = ["usb"]
 """List of LL APIs to be ignored."""
 
 
@@ -70,7 +68,7 @@ def main(hal_path, output):
         # obtain series LL headers
         series_headers = entry / "drivers" / "include"
         for header in series_headers.iterdir():
-            m = re.match(r"stm32[a-z0-9]+_ll_([a-z0-9]+)\.h", header.name)
+            m = re.match(r"^stm32[a-z0-9]+_ll_([a-z0-9]+)\.h$", header.name)
             if not m:
                 continue
 
