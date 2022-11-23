@@ -309,7 +309,7 @@
  */
 static uint32_t MMC_InitCard(MMC_HandleTypeDef *hmmc);
 static uint32_t MMC_PowerON(MMC_HandleTypeDef *hmmc);
-static uint32_t MMC_SendStatus(MMC_HandleTypeDef *hmmc, uint32_t *pCardStatus);
+uint32_t MMC_SendStatus(MMC_HandleTypeDef *hmmc, uint32_t *pCardStatus);
 static uint32_t MMC_ReadExtCSD(MMC_HandleTypeDef *hmmc, uint32_t *pFieldData, uint16_t FieldIndex, uint32_t Timeout);
 static void MMC_PowerOFF(MMC_HandleTypeDef *hmmc);
 static void MMC_Write_IT(MMC_HandleTypeDef *hmmc);
@@ -2253,6 +2253,31 @@ HAL_StatusTypeDef HAL_MMC_Cache(MMC_HandleTypeDef *hmmc, uint32_t enable)
     hmmc->ErrorCode |= errorstate;
     return HAL_ERROR;
   }
+  int retry = 0xFFFF;
+  uint32_t cardStatus = 0;
+  do
+  {
+    /* SendStatus (CMD13) after initiating eMMC flush until the card status is
+    suitable for continuing operations, i.e. idle, ready or transfer states. */
+    errorstate = MMC_SendStatus(hmmc, &cardStatus);
+    if (errorstate != HAL_MMC_ERROR_NONE)
+    {
+      break;
+    }
+    const uint8_t current_state = (cardStatus >> 9) & 0x0F;
+    enum
+    {
+      EMMC_CARD_STATUS_IDLE = 0,
+      EMMC_CARD_STATUS_READY = 1,
+      EMMC_CARD_STATUS_TRANSFER = 4, // among others
+    };
+    if (current_state == EMMC_CARD_STATUS_IDLE ||
+        current_state == EMMC_CARD_STATUS_READY ||
+        current_state == EMMC_CARD_STATUS_TRANSFER)
+    {
+      break;
+    }
+  } while (retry--);
   return HAL_OK;
 }
 
@@ -2940,7 +2965,7 @@ static void MMC_PowerOFF(MMC_HandleTypeDef *hmmc)
  *         status (Card Status register)
  * @retval error state
  */
-static uint32_t MMC_SendStatus(MMC_HandleTypeDef *hmmc, uint32_t *pCardStatus)
+uint32_t MMC_SendStatus(MMC_HandleTypeDef *hmmc, uint32_t *pCardStatus)
 {
   uint32_t errorstate;
 
