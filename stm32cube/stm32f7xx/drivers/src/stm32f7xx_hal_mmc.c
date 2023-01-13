@@ -1167,6 +1167,11 @@ HAL_StatusTypeDef HAL_MMC_ReadBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pData
     hmmc->ErrorCode |= HAL_MMC_ERROR_PARAM;
     return HAL_ERROR;
   }
+  if ((uint32_t)pData & 3)
+  {
+    hmmc->ErrorCode |= HAL_MMC_ERROR_PARAM;
+    return HAL_ERROR;
+  }
 
   if (hmmc->State == HAL_MMC_STATE_READY)
   {
@@ -1182,8 +1187,6 @@ HAL_StatusTypeDef HAL_MMC_ReadBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pData
 
     /* Initialize data control register */
     hmmc->Instance->DCTRL = 0U;
-
-    __HAL_MMC_ENABLE_IT(hmmc, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_RXOVERR | SDMMC_IT_DATAEND));
 
     /* Set the DMA transfer complete callback */
     hmmc->hdmarx->XferCpltCallback = MMC_DMAReceiveCplt;
@@ -1202,6 +1205,8 @@ HAL_StatusTypeDef HAL_MMC_ReadBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pData
     /* Force DMA Direction */
     hmmc->hdmarx->Init.Direction = DMA_PERIPH_TO_MEMORY;
     MODIFY_REG(hmmc->hdmarx->Instance->CR, DMA_SxCR_DIR, hmmc->hdmarx->Init.Direction);
+
+    __HAL_MMC_ENABLE_IT(hmmc, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_RXOVERR | SDMMC_IT_DATAEND));
 
     /* Enable the DMA Channel */
     if (HAL_DMA_Start_IT(hmmc->hdmarx, (uint32_t)&hmmc->Instance->FIFO, (uint32_t)pData, (uint32_t)(MMC_BLOCKSIZE * NumberOfBlocks) / 4) != HAL_OK)
@@ -1300,9 +1305,6 @@ HAL_StatusTypeDef HAL_MMC_WriteBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pDat
     /* Initialize data control register */
     hmmc->Instance->DCTRL = 0U;
 
-    /* Enable MMC Error interrupts */
-    __HAL_MMC_ENABLE_IT(hmmc, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_TXUNDERR));
-
     /* Set the DMA transfer complete callback */
     hmmc->hdmatx->XferCpltCallback = MMC_DMATransmitCplt;
 
@@ -1348,6 +1350,9 @@ HAL_StatusTypeDef HAL_MMC_WriteBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pDat
     /* Force DMA Direction */
     hmmc->hdmatx->Init.Direction = DMA_MEMORY_TO_PERIPH;
     MODIFY_REG(hmmc->hdmatx->Instance->CR, DMA_SxCR_DIR, hmmc->hdmatx->Init.Direction);
+
+    /* Enable MMC interrupts */
+    __HAL_MMC_ENABLE_IT(hmmc, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_TXUNDERR | SDMMC_IT_DATAEND));
 
     /* Enable the DMA Channel */
     if (HAL_DMA_Start_IT(hmmc->hdmatx, (uint32_t)pData, (uint32_t)&hmmc->Instance->FIFO, (uint32_t)(MMC_BLOCKSIZE * NumberOfBlocks) / 4) != HAL_OK)
