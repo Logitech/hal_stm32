@@ -1169,8 +1169,6 @@ HAL_StatusTypeDef HAL_MMC_ReadBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pData
   }
   if ((uint32_t)pData & 3)
   {
-    extern void printk(const char *, ...);
-    printk("ERROR: unaligned pData in %s: %08x", __FUNCTION__, pData);
     hmmc->ErrorCode |= HAL_MMC_ERROR_PARAM;
     return HAL_ERROR;
   }
