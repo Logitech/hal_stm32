@@ -1175,11 +1175,13 @@ HAL_StatusTypeDef HAL_MMC_ReadBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pData
 
   if (hmmc->State == HAL_MMC_STATE_READY)
   {
+    __disable_irq();
     hmmc->ErrorCode = HAL_MMC_ERROR_NONE;
 
     if ((BlockAdd + NumberOfBlocks) > (hmmc->MmcCard.LogBlockNbr))
     {
       hmmc->ErrorCode |= HAL_MMC_ERROR_ADDR_OUT_OF_RANGE;
+      __enable_irq();
       return HAL_ERROR;
     }
 
@@ -1206,6 +1208,7 @@ HAL_StatusTypeDef HAL_MMC_ReadBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pData
     hmmc->hdmarx->Init.Direction = DMA_PERIPH_TO_MEMORY;
     MODIFY_REG(hmmc->hdmarx->Instance->CR, DMA_SxCR_DIR, hmmc->hdmarx->Init.Direction);
 
+    __enable_irq();
     __HAL_MMC_ENABLE_IT(hmmc, (SDMMC_IT_DCRCFAIL | SDMMC_IT_DTIMEOUT | SDMMC_IT_RXOVERR | SDMMC_IT_DATAEND));
 
     /* Enable the DMA Channel */
