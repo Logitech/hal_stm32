@@ -1318,7 +1318,6 @@ HAL_StatusTypeDef HAL_MMC_WriteBlocks_DMA(MMC_HandleTypeDef *hmmc, uint8_t *pDat
       add *= 512U;
     }
 
-
     /* Write Blocks in Polling mode */
     if(NumberOfBlocks > 1U)
     {
@@ -2233,6 +2232,93 @@ HAL_StatusTypeDef HAL_MMC_GetCardExtCSD(MMC_HandleTypeDef *hmmc, uint32_t *pExtC
 }
 
 /**
+ * @brief Enable / Disable the MMC cache
+ * @param  hmmc: Pointer to MMC handle
+ * @param enable enables the cache if true (non-zero), disable otherwise
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_MMC_Cache(MMC_HandleTypeDef *hmmc, uint32_t enable)
+{
+  uint32_t errorstate;
+
+  if (enable)
+  {
+    errorstate = SDMMC_CmdSwitch(hmmc->Instance, 0x03210100U);
+  }
+  else
+  {
+    errorstate = SDMMC_CmdSwitch(hmmc->Instance, 0x03210000U);
+  }
+  if (errorstate != HAL_MMC_ERROR_NONE)
+  {
+    hmmc->ErrorCode |= errorstate;
+    return HAL_ERROR;
+  }
+  /*
+   * re-read the extCSD since things have now changed
+   */
+  if (HAL_MMC_GetCardExtCSD(hmmc, hmmc->Ext_CSD, SDMMC_DATATIMEOUT) != HAL_OK)
+  {
+    return HAL_ERROR;
+  }
+  return HAL_OK;
+}
+
+/**
+ * @brief Flush the cache
+ *
+ * @param  hmmc: Pointer to MMC handle
+ * @retval HAL status
+ */
+HAL_StatusTypeDef HAL_MMC_FlushCache(MMC_HandleTypeDef *hmmc)
+{
+  uint32_t errorstate = HAL_MMC_ERROR_NONE;
+  uint32_t cardStatus = 0;
+  uint32_t retry = SDMMC_MAX_TRIAL;
+
+  if (hmmc->State == HAL_MMC_STATE_READY)
+  {
+    hmmc->State = HAL_MMC_STATE_BUSY;
+    errorstate = SDMMC_CmdSwitch(hmmc->Instance, 0x03200100U);
+    if (errorstate != HAL_MMC_ERROR_NONE)
+    {
+      hmmc->ErrorCode |= errorstate;
+      hmmc->State = HAL_MMC_STATE_READY;
+      return HAL_ERROR;
+    }
+    do
+    {
+      /* SendStatus (CMD13) after initiating eMMC flush until the card status is
+      suitable for continuing operations, i.e. idle, ready or transfer states. */
+      errorstate = MMC_SendStatus(hmmc, &cardStatus);
+      if (errorstate != HAL_MMC_ERROR_NONE)
+      {
+        break;
+      }
+      const uint8_t current_state = (cardStatus >> 9) & 0x0F;
+      enum
+      {
+        EMMC_CARD_STATUS_IDLE = 0,
+        EMMC_CARD_STATUS_READY = 1,
+        EMMC_CARD_STATUS_TRANSFER = 4, // among others
+      };
+      if (current_state == EMMC_CARD_STATUS_IDLE ||
+          current_state == EMMC_CARD_STATUS_READY ||
+          current_state == EMMC_CARD_STATUS_TRANSFER)
+      {
+        break;
+      }
+    } while (retry--);
+    if (errorstate != HAL_MMC_ERROR_NONE)
+    {
+      hmmc->ErrorCode |= errorstate;
+    }
+    hmmc->State = HAL_MMC_STATE_READY;
+  }
+  return errorstate == HAL_MMC_ERROR_NONE ? HAL_OK : HAL_ERROR;
+}
+
+/**
   * @brief  Enables wide bus operation for the requested card if supported by
   *         card.
   * @param  hmmc: Pointer to MMC handle
@@ -2969,7 +3055,6 @@ static uint32_t MMC_ReadExtCSD(MMC_HandleTypeDef *hmmc, uint32_t *pFieldData, ui
 
   return HAL_OK;
 }
-
 
 /**
   * @brief  Wrap up reading in non-blocking mode.
