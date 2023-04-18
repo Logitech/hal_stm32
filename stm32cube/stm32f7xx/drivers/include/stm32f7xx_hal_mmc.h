@@ -627,6 +627,8 @@ HAL_StatusTypeDef HAL_MMC_UnRegisterCallback(MMC_HandleTypeDef *hmmc, HAL_MMC_Ca
 /** @defgroup MMC_Exported_Functions_Group3 Peripheral Control functions
   * @{
   */
+HAL_StatusTypeDef HAL_MMC_Cache(MMC_HandleTypeDef *hmmc, uint32_t enable);
+HAL_StatusTypeDef HAL_MMC_FlushCache(MMC_HandleTypeDef *hmmc);
 HAL_StatusTypeDef HAL_MMC_ConfigWideBusOperation(MMC_HandleTypeDef *hmmc, uint32_t WideMode);
 /**
   * @}
