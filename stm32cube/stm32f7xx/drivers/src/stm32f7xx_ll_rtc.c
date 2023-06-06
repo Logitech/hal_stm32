@@ -736,17 +736,14 @@ ErrorStatus LL_RTC_EnterInitMode(RTC_TypeDef *RTCx)
 
     /* Wait till RTC is in INIT state and if Time out is reached exit */
     tmp = LL_RTC_IsActiveFlag_INIT(RTCx);
-    while ((timeout != 0U) && (tmp != 1U))
+    while (tmp != 1U)
     {
-      if (LL_SYSTICK_IsActiveCounterFlag() == 1U)
-      {
-        timeout --;
-      }
-      tmp = LL_RTC_IsActiveFlag_INIT(RTCx);
-      if (timeout == 0U)
+      if (--timeout == 0)
       {
         status = ERROR;
+        break;
       }
+      tmp = LL_RTC_IsActiveFlag_INIT(RTCx);
     }
   }
   return status;
